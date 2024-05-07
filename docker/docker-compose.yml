@@ -1,0 +1,63 @@
+version: "3.8"
+services:
+  edge-service:
+    depends_on:
+      - catalog-service
+      - order-service
+      - polar-redis
+    image: "edge-service:0.0.1-SNAPSHOT"
+    container_name: "edge-service"
+    ports:
+      - 9000:9000
+    environment:
+      - CATALOG_SERVICE_URL=http://catalog-service:9001
+      - ORDER_SERVICE_URL=http://order-service:9002
+      - SPRING_DATA_REDIS_HOST=polar-redis
+
+  order-service:
+    depends_on:
+      - polar-postgres
+      - catalog-service
+    image: "order-service:0.0.1-SNAPSHOT"
+    container_name: "order-service"
+    ports:
+      - 9002:9002
+    environment:
+      - SPRING_R2DBC_URL=r2dbc:postgresql://polar-postgres:5432/polardb_order
+      # - LOGGING_LEVEL_org.springframework.web=DEBUG
+      - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB=DEBUG
+      - POLAR_CATALOG-SERVICE-URL=http://catalog-service:9001
+      - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
+
+  catalog-service:
+    depends_on:
+      - polar-postgres
+      - config-service
+    image: catalog-service:2.2.0
+    container_name: catalog-service
+    ports:
+      - "9001:9001"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://polar-postgres:5432/polardb_catalog
+      - POLAR_TESTDATA_ENABLED=true
+      - SPRING_CLOUD_CONFIG_ENABLED=true
+      - SPRING_CLOUD_CONFIG_URI=http://config-service:8888
+
+  config-service:
+    image: config-service:0.0.1-SNAPSHOT
+    container_name: config-service
+
+  polar-redis:
+    image: redis:7.0
+    container_name: "polar-redis"
+    ports:
+      - 6379:6379
+
+  polar-postgres:
+    image: postgres:14.4
+    container_name: polar-postgres
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - /Users/amilad/Tasks/spring/polar-deployment/docker/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
