@@ -14,10 +14,21 @@ services:
       - ORDER_SERVICE_URL=http://order-service:9002
       - SPRING_DATA_REDIS_HOST=polar-redis
 
+  dispatcher-service:
+    depends_on:
+      - polar-rabbitmq
+    image: "dispatcher-service:0.0.1-SNAPSHOT"
+    container_name: "dispatcher-service"
+    ports:
+      - 9003:9003
+    environment:
+      - SPRING_RABBITMQ_HOST=polar-rabbitmq
+
   order-service:
     depends_on:
       - polar-postgres
       - catalog-service
+      - polar-rabbitmq
     image: "order-service:0.0.1-SNAPSHOT"
     container_name: "order-service"
     ports:
@@ -28,12 +39,13 @@ services:
       - LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB=DEBUG
       - POLAR_CATALOG-SERVICE-URL=http://catalog-service:9001
       - SPRING_FLYWAY_URL=jdbc:postgresql://polar-postgres:5432/polardb_order
+      - SPRING_RABBITMQ_HOST=polar-rabbitmq
 
   catalog-service:
     depends_on:
       - polar-postgres
       - config-service
-    image: catalog-service:2.2.0
+    image: catalog-service:latest
     container_name: catalog-service
     ports:
       - "9001:9001"
@@ -56,8 +68,19 @@ services:
   polar-postgres:
     image: postgres:14.4
     container_name: polar-postgres
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_USER=user
       - POSTGRES_PASSWORD=password
+    volumes:      
+      - /Users/amila/Tasks/spring/polar-tutorial/polar-deployment/docker/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  polar-rabbitmq:
+    image: rabbitmq:3.10-management
+    container_name: polar-rabbitmq
+    ports:
+        - 5672:5672
+        - 15672:15672
     volumes:
-      - /Users/amilad/Tasks/spring/polar-deployment/docker/postgresql/init.sql:/docker-entrypoint-initdb.d/init.sql
+        - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
